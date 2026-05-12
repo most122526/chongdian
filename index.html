@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover, maximum-scale=1.0">
+    <title>智能充电桩 · 新能源充电管家</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        :root {
+            --bg: #141e28;
+            --card: #1c2b3a;
+            --accent: #00d4aa;
+            --accent2: #ff6b6b;
+            --gold: #f5c842;
+            --text: #eaf2f8;
+            --text2: #94a8b8;
+            --border: #2d4050;
+            --charging: #00d4aa;
+            --warning: #f59e4b;
+            --danger: #e74c3c;
+            --progress-bg: #1a2836;
+        }
+        * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: 'Inter', sans-serif;
+            background: radial-gradient(circle at 50% 30%, #1a3040, #0a141c);
+            min-height: 100vh;
+            display: flex; align-items: center; justify-content: center;
+            padding: 14px;
+        }
+        .phone {
+            max-width: 420px; width: 100%;
+            background: var(--bg); border-radius: 42px;
+            padding: 16px 14px 22px;
+            box-shadow: 0 22px 50px rgba(0,0,0,0.7), inset 0 0 0 1px rgba(0,180,140,0.2);
+            border: 1px solid #2a5060; color: var(--text);
+            display: flex; flex-direction: column; gap: 12px;
+        }
+        .status-bar { display:flex; justify-content:space-between; align-items:center; background:#1c2b3a; border-radius:28px; padding:7px 16px; font-size:0.8rem; font-weight:600; border:1px solid #2d4050; }
+        .bt-area { display:flex; align-items:center; gap:7px; }
+        .led { width:10px; height:10px; border-radius:50%; background:#4a5a6a; transition:0.3s; }
+        .led.active { background:#2ecc71; box-shadow:0 0 10px #2ecc71; animation:pulse 1.2s infinite; }
+        @keyframes pulse { 0%,100%{opacity:0.6;transform:scale(1);} 50%{opacity:1;transform:scale(1.15);} }
+        .clock { font-family:monospace; font-weight:600; }
+        .btn { background:#253544; border:none; padding:7px 14px; border-radius:20px; font-weight:600; font-size:0.7rem; color:#fff; cursor:pointer; display:inline-flex; align-items:center; gap:5px; border:1px solid #3a5568; transition:0.15s; white-space:nowrap; }
+        .btn:active { transform:scale(0.95); background:#3a5568; }
+        .btn-accent { background:#0d8a6a; border-color:#00d4aa; font-weight:700; }
+        .btn-danger { background:#b03a2a; border-color:#d04a3a; }
+        .btn-warn { background:#e67e22; border-color:#f59e4b; }
+        .config-panel { display:none; background:#1c2b3a; border-radius:16px; padding:10px; flex-direction:column; gap:7px; border:1px solid #2d4050; }
+        .config-panel input { background:#141e28; border:1px solid #2d4050; color:#eaf2f8; padding:5px 10px; border-radius:14px; font-family:monospace; font-size:0.65rem; flex:1; outline:none; }
+        .row { display:flex; gap:7px; flex-wrap:wrap; align-items:center; }
+        .station-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+        .station-card { background:var(--card); border-radius:16px; padding:12px 8px; text-align:center; border:2px solid var(--border); cursor:pointer; transition:0.2s; }
+        .station-card.selected { border-color:var(--accent); box-shadow:0 0 16px rgba(0,212,170,0.35); }
+        .station-card.occupied { opacity:0.5; pointer-events:none; border-color:#5a3a3a; }
+        .station-icon { font-size:1.6rem; } .station-name { font-weight:700; font-size:0.8rem; } .station-status { font-size:0.6rem; color:var(--text2); }
+        .battery-container { display:flex; flex-direction:column; align-items:center; gap:6px; background:var(--card); border-radius:20px; padding:14px; border:1px solid var(--border); }
+        .battery-body { width:80px; height:130px; border:4px solid #5a7a8a; border-radius:12px; position:relative; overflow:hidden; background:#0d1a24; }
+        .battery-cap { width:36px; height:8px; background:#5a7a8a; border-radius:3px 3px 0 0; margin:0 auto; }
+        .battery-fill { position:absolute; bottom:0; left:0; right:0; background:linear-gradient(0deg, #00d4aa 0%, #00e8b8 50%, #00ffc8 100%); transition:height 0.3s; border-radius:0 0 8px 8px; box-shadow:0 0 20px rgba(0,212,170,0.5); }
+        .battery-percent { position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); font-weight:800; font-size:1.1rem; color:#fff; z-index:1; text-shadow:0 0 8px rgba(0,0,0,0.8); }
+        .charging-bolt { font-size:1.2rem; animation:boltPulse 0.8s infinite; color:var(--gold); }
+        @keyframes boltPulse { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:0.4;transform:scale(1.3);} }
+        .data-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
+        .data-card { background:var(--card); border-radius:14px; padding:10px; text-align:center; border:1px solid var(--border); }
+        .data-value { font-size:1.6rem; font-weight:800; color:var(--accent); }
+        .data-label { font-size:0.6rem; color:var(--text2); }
+        .temp-warn { color:var(--danger)!important; animation:blink 0.8s infinite; }
+        @keyframes blink { 50%{opacity:0.4;} }
+        .progress-bar-bg { background:var(--progress-bg); border-radius:10px; height:6px; overflow:hidden; }
+        .progress-bar-fill { height:100%; background:linear-gradient(90deg,#00d4aa,#00e8c0); border-radius:10px; transition:width 0.3s; }
+        .log-box { background:#0a141c; border-radius:12px; padding:7px 10px; height:70px; overflow-y:auto; font-family:monospace; font-size:0.6rem; color:#7a9aaa; border:1px solid #1a2e3a; }
+        .bill-card { background:linear-gradient(135deg,#1c3a2a,#1c2b3a); border-radius:16px; padding:12px; border:1px solid #00d4aa; text-align:center; }
+        .bill-amount { font-size:2.5rem; font-weight:800; color:var(--gold); }
+        .section-title { font-weight:700; font-size:0.8rem; color:#c0d8e8; margin-bottom:4px; display:flex; align-items:center; gap:6px; }
+        input[type=range] { width:100%; accent-color:var(--accent); }
+        .status-badge { display:inline-block; padding:3px 10px; border-radius:12px; font-weight:700; font-size:0.65rem; }
+        .badge-charging { background:#0d5a3a; color:#00ffc8; }
+        .badge-idle { background:#3a4a5a; color:#a0b8c8; }
+        .badge-fault { background:#5a2020; color:#ff6b6b; }
+    </style>
+</head>
+<body>
+<div class="phone">
+    <div class="status-bar">
+        <div class="bt-area"><div class="led" id="bleLed"></div><span id="connStatus">未连接</span><button class="btn" id="configToggleBtn"><i class="fas fa-bluetooth"></i></button></div>
+        <div class="clock" id="liveClock">--:--:--</div>
+        <span id="chargeStatusBadge" class="status-badge badge-idle">待机</span>
+    </div>
+
+    <div class="config-panel" id="configPanel">
+        <div class="row">
+            <input id="serviceUuid" value="0000fff0-0000-1000-8000-00805f9b34fb" placeholder="服务UUID">
+            <input id="notifyUuid" value="0000fff1-0000-1000-8000-00805f9b34fb" placeholder="通知UUID">
+            <input id="writeUuid" value="0000fff1-0000-1000-8000-00805f9b34fb" placeholder="写入UUID">
+        </div>
+        <div class="row">
+            <button class="btn" id="scanBtn"><i class="fas fa-search"></i> 扫描</button>
+            <button class="btn" id="connectBtn" disabled>连接</button>
+            <button class="btn btn-danger" id="disconnectBtn" disabled>断开</button>
+            <button class="btn btn-warn" id="simulateBtn"><i class="fas fa-flask"></i> 模拟数据</button>
+        </div>
+    </div>
+
+    <div id="stationSelectPanel">
+        <div class="section-title"><i class="fas fa-charging-station"></i> 选择充电桩</div>
+        <div class="station-grid" id="stationGrid">
+            <div class="station-card" data-station="1"><div class="station-icon">⚡</div><div class="station-name">A区1号桩</div><div class="station-status">空闲 🟢</div></div>
+            <div class="station-card" data-station="2"><div class="station-icon">⚡</div><div class="station-name">A区2号桩</div><div class="station-status">空闲 🟢</div></div>
+            <div class="station-card" data-station="3"><div class="station-icon">🔌</div><div class="station-name">B区1号桩</div><div class="station-status">空闲 🟢</div></div>
+            <div class="station-card" data-station="4"><div class="station-icon">🔌</div><div class="station-name">B区2号桩</div><div class="station-status">空闲 🟢</div></div>
+        </div>
+    </div>
+
+    <div id="billingPanel" style="display:none;">
+        <div class="section-title"><i class="fas fa-clock"></i> 计费设置</div>
+        <div class="row" style="justify-content:center; gap:10px;">
+            <select id="durationSelect" class="btn" style="font-size:0.75rem;">
+                <option value="30">30分钟 - ¥6.00</option>
+                <option value="60" selected>1小时 - ¥10.00</option>
+                <option value="90">1.5小时 - ¥14.00</option>
+                <option value="120">2小时 - ¥18.00</option>
+            </select>
+            <button class="btn btn-accent" id="payBtn"><i class="fas fa-qrcode"></i> 模拟支付</button>
+        </div>
+        <div id="payResult" style="text-align:center; margin-top:6px; font-weight:700; color:#00d4aa; display:none;">✅ 支付成功！</div>
+    </div>
+
+    <div id="chargingPanel" style="display:none;">
+        <div class="battery-container">
+            <div class="battery-cap"></div>
+            <div class="battery-body">
+                <div class="battery-fill" id="batteryFill" style="height:0%;"></div>
+                <div class="battery-percent" id="batteryPercent">0%</div>
+            </div>
+            <div id="chargingBolt" class="charging-bolt" style="display:none;">⚡</div>
+            <div style="font-weight:700; font-size:0.8rem;" id="chargingStateText">准备就绪</div>
+            <div class="progress-bar-bg" style="width:100%;"><div class="progress-bar-fill" id="chargeProgressBar" style="width:0%;"></div></div>
+            <div style="font-size:0.6rem; color:var(--text2);">剩余 <span id="remainingTime">--</span> | 已充 <span id="chargedKwh">0.00</span> kWh</div>
+        </div>
+
+        <div class="data-grid">
+            <div class="data-card"><div class="data-label">🌡️ 温度</div><div class="data-value" id="tempVal">--</div><div class="data-label">阈值 <span id="tempThrDisplay">70</span>°C</div></div>
+            <div class="data-card"><div class="data-label">⚡ 电压</div><div class="data-value" id="voltVal">--</div><div class="data-label">V</div></div>
+            <div class="data-card"><div class="data-label">🔌 电流</div><div class="data-value" id="currVal">--</div><div class="data-label">A</div></div>
+            <div class="data-card"><div class="data-label">📊 功率</div><div class="data-value" id="powerVal">--</div><div class="data-label">等级 (0-99)</div></div>
+        </div>
+
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin:8px 0;">
+            <span style="font-size:0.65rem; color:var(--text2);">功率调节</span>
+            <button class="btn" id="autoModeToggle" style="font-size:0.65rem;">🔄 自动调节</button>
+            <input type="range" id="manualPowerSlider" min="0" max="99" value="50" style="width:100px;" disabled>
+            <span id="targetPowerDisplay" style="font-size:0.7rem; font-weight:700;">50</span>
+        </div>
+
+        <div class="row" style="justify-content:center; gap:8px;">
+            <button class="btn btn-accent" id="startChargeBtn"><i class="fas fa-bolt"></i> 启动充电</button>
+            <button class="btn btn-danger" id="stopChargeBtn"><i class="fas fa-power-off"></i> 停止充电</button>
+        </div>
+        <div style="font-size:0.6rem; color:var(--text2); text-align:center; margin-top:4px;">
+            温度阈值: <input type="range" id="tempThrSlider" min="40" max="90" value="70" style="width:120px;display:inline;">
+            <span id="tempThrVal">70°C</span> (超温自动断电)
+        </div>
+    </div>
+
+    <div id="settlementPanel" style="display:none;" class="bill-card">
+        <div style="font-weight:700;">💰 充电结算</div>
+        <div class="bill-amount" id="finalBill">¥0.00</div>
+        <div style="font-size:0.7rem;">充电量: <span id="finalKwh">0</span> kWh | 时长: <span id="finalDuration">0</span> 分钟</div>
+        <div style="font-size:0.6rem; color:var(--text2);">温度: <span id="finalTemp">--</span>°C | 状态: <span id="finalStatus">--</span></div>
+        <button class="btn btn-accent" id="newChargeBtn" style="margin-top:6px;"><i class="fas fa-redo"></i> 新的充电</button>
+    </div>
+
+    <div class="log-box" id="logBox">🔋 智能充电桩就绪</div>
+</div>
+
+<script>
+(function() {
+    const bleLed = document.getElementById('bleLed');
+    const connStatus = document.getElementById('connStatus');
+    const configToggleBtn = document.getElementById('configToggleBtn');
+    const configPanel = document.getElementById('configPanel');
+    const scanBtn = document.getElementById('scanBtn');
+    const connectBtn = document.getElementById('connectBtn');
+    const disconnectBtn = document.getElementById('disconnectBtn');
+    const simulateBtn = document.getElementById('simulateBtn');
+    const serviceUuidInput = document.getElementById('serviceUuid');
+    const notifyUuidInput = document.getElementById('notifyUuid');
+    const writeUuidInput = document.getElementById('writeUuid');
+    const logBox = document.getElementById('logBox');
+    const clockSpan = document.getElementById('liveClock');
+    const chargeStatusBadge = document.getElementById('chargeStatusBadge');
+
+    let bluetoothDevice = null, gattServer = null, notifyChar = null, writeChar = null, isConnected = false;
+    let selectedStation = null;
+    let chargeActive = false;
+    let chargeProgress = 0;
+    let chargeInterval = null;
+    let simInterval = null;
+    let currentTemp = 25, currentVolt = 220, currentCurr = 0, currentPower = 0, chargeState = 1;
+    let tempThreshold = 70;
+    let totalChargeSeconds = 0;
+    let elapsedSeconds = 0;
+    let targetDurationMin = 60;
+    let totalKwh = 0;
+    let paidAmount = 0;
+    let autoMode = true;
+    let targetPower = 50;
+    const TIME_SPEED = 10; // 10倍加速
+
+    function updateClock() { clockSpan.textContent = new Date().toLocaleTimeString('zh-CN',{hour12:false}); }
+    setInterval(updateClock,1000); updateClock();
+
+    function addLog(msg,type='info') {
+        const div=document.createElement('div');
+        div.style.color=type==='rx'?'#00d4aa':type==='tx'?'#f5c842':'#7a9aaa';
+        div.textContent=`[${new Date().toLocaleTimeString()}] ${msg}`;
+        logBox.appendChild(div); logBox.scrollTop=logBox.scrollHeight;
+        if(logBox.children.length>30) logBox.removeChild(logBox.children[0]);
+    }
+
+    function updateConnectionUI(connected) {
+        isConnected=connected;
+        bleLed.classList.toggle('active',connected);
+        connStatus.textContent=connected?'已连接':'未连接';
+        connectBtn.disabled=connected||!bluetoothDevice;
+        disconnectBtn.disabled=!connected;
+        scanBtn.disabled=connected;
+    }
+
+    function getPowerByProgress(progress) {
+        if(progress<15) return Math.round(15+(progress/15)*70);
+        if(progress<80) return 85+Math.round(Math.random()*10);
+        if(progress<100) return Math.round(85-((progress-80)/20)*70);
+        return 5;
+    }
+
+    function updateChargingDisplay() {
+        const pct = Math.min(100,Math.max(0,chargeProgress));
+        document.getElementById('batteryFill').style.height=pct+'%';
+        document.getElementById('batteryPercent').textContent=Math.round(pct)+'%';
+        document.getElementById('chargeProgressBar').style.width=pct+'%';
+        const remainingSec = chargeActive ? Math.max(0,totalChargeSeconds-elapsedSeconds) : 0;
+        const remMin = Math.floor(remainingSec/60);
+        const remSec = remainingSec%60;
+        document.getElementById('remainingTime').textContent = remMin+'分'+remSec+'秒';
+        document.getElementById('chargedKwh').textContent = totalKwh.toFixed(2);
+        document.getElementById('tempVal').textContent = currentTemp.toFixed(1);
+        document.getElementById('voltVal').textContent = currentVolt.toFixed(1);
+        document.getElementById('currVal').textContent = currentCurr.toFixed(1);
+        document.getElementById('powerVal').textContent = currentPower;
+        if(currentTemp>tempThreshold && chargeActive) {
+            document.getElementById('tempVal').classList.add('temp-warn');
+        } else {
+            document.getElementById('tempVal').classList.remove('temp-warn');
+        }
+        document.getElementById('targetPowerDisplay').textContent = targetPower;
+    }
+
+    function buildCommand(chargeOn, power) {
+        const hundreds = chargeOn ? 1 : 2;
+        const tensUnits = Math.min(99,Math.max(0,Math.round(power)));
+        return String(hundreds)+String(tensUnits).padStart(2,'0')+'#';
+    }
+
+    async function sendCommand(cmd) {
+        if(!isConnected||!writeChar) return;
+        try { await writeChar.writeValue(new TextEncoder().encode(cmd)); addLog(`📤 下发: ${cmd}`,'tx'); }
+        catch(e) { addLog(`发送失败: ${e.message}`,'tx'); }
+    }
+
+    function stopAllIntervals() { if(chargeInterval) clearInterval(chargeInterval); chargeInterval=null; if(simInterval) clearInterval(simInterval); simInterval=null; }
+
+    function resetChargeState() {
+        stopAllIntervals();
+        chargeActive=false; chargeProgress=0; elapsedSeconds=0; totalKwh=0;
+        currentTemp=25; currentVolt=220; currentCurr=0; currentPower=0; chargeState=1;
+        updateChargingDisplay();
+        document.getElementById('chargingBolt').style.display='none';
+        document.getElementById('chargingStateText').textContent='准备就绪';
+        chargeStatusBadge.className='status-badge badge-idle';
+        chargeStatusBadge.textContent='待机';
+        document.getElementById('startChargeBtn').disabled=false;
+        document.getElementById('stopChargeBtn').disabled=true;
+    }
+
+    function finishCharge(reason) {
+        stopAllIntervals();
+        chargeActive=false;
+        chargeState=1;
+        document.getElementById('chargingBolt').style.display='none';
+        document.getElementById('chargingStateText').textContent=reason;
+        chargeStatusBadge.className='status-badge badge-idle';
+        chargeStatusBadge.textContent='待机';
+        document.getElementById('startChargeBtn').disabled=true;
+        document.getElementById('stopChargeBtn').disabled=true;
+        updateChargingDisplay();
+        showSettlement(reason);
+        sendCommand(buildCommand(false,0));
+        addLog(`⏹️ ${reason}，充电已停止`);
+    }
+
+    function showSettlement(reason) {
+        document.getElementById('chargingPanel').style.display='none';
+        document.getElementById('settlementPanel').style.display='block';
+        document.getElementById('finalBill').textContent='¥'+paidAmount.toFixed(2);
+        document.getElementById('finalKwh').textContent=totalKwh.toFixed(2);
+        document.getElementById('finalDuration').textContent=Math.round(elapsedSeconds/60);
+        document.getElementById('finalTemp').textContent=currentTemp.toFixed(1);
+        document.getElementById('finalStatus').textContent=reason;
+    }
+
+    function startChargingSimulation() {
+        if(chargeActive) return;
+        chargeActive=true;
+        document.getElementById('chargingBolt').style.display='inline';
+        document.getElementById('chargingStateText').textContent='充电中...';
+        chargeStatusBadge.className='status-badge badge-charging';
+        chargeStatusBadge.textContent='充电中';
+        document.getElementById('startChargeBtn').disabled=true;
+        document.getElementById('stopChargeBtn').disabled=false;
+        totalChargeSeconds=targetDurationMin*60;
+        elapsedSeconds=0; chargeProgress=0; totalKwh=0;
+        stopAllIntervals();
+        if(autoMode) targetPower = getPowerByProgress(0);
+        sendCommand(buildCommand(true,targetPower));
+        addLog('🔌 充电已启动');
+        chargeInterval = setInterval(() => {
+            elapsedSeconds += TIME_SPEED;
+            chargeProgress = Math.min(100, (elapsedSeconds/totalChargeSeconds)*100);
+            if(autoMode) targetPower = getPowerByProgress(chargeProgress);
+            totalKwh += (targetPower/99) * 6.6 * (TIME_SPEED/3600);
+            updateChargingDisplay();
+            sendCommand(buildCommand(true, targetPower));
+            if(chargeProgress >= 100) {
+                finishCharge('充电完成');
+            }
+        }, 1000);
+    }
+
+    function parseSensorData(raw) {
+        const match = raw.match(/#([\d.]+)#([\d.]+)#([\d.]+)#(\d)#([\d.]+)#/);
+        if(match) {
+            currentTemp = parseFloat(match[1]);
+            currentVolt = parseFloat(match[2]);
+            currentCurr = parseFloat(match[3]);
+            chargeState = parseInt(match[4]);
+            currentPower = parseInt(match[5]);
+            updateChargingDisplay();
+            addLog(`📥 温:${currentTemp.toFixed(1)} V:${currentVolt.toFixed(1)} A:${currentCurr.toFixed(1)} 状态:${chargeState} 功率:${currentPower}`,'rx');
+            if(chargeState === 1 && chargeActive) {
+                finishCharge('设备已断电');
+            }
+            if(currentTemp > tempThreshold && chargeActive) {
+                finishCharge('超温断电');
+            }
+        }
+    }
+
+    function onNotification(event) {
+        const val = event.target.value;
+        if(!val) return;
+        parseSensorData(new TextDecoder('utf-8').decode(val).trim());
+    }
+
+    async function scan() {
+        if(!navigator.bluetooth){alert('需要Web Bluetooth');return;}
+        const svc=serviceUuidInput.value.trim(); if(!svc) return alert('输入UUID');
+        try{ const d=await navigator.bluetooth.requestDevice({filters:[{services:[svc]}],optionalServices:[svc]});
+            bluetoothDevice=d; connectBtn.disabled=false; addLog(`已选择: ${d.name||d.id}`); }
+        catch(e){ if(!e.message.includes('cancelled')) addLog(`扫描错误: ${e.message}`); }
+    }
+    async function connect() {
+        if(!bluetoothDevice) return;
+        const svc=serviceUuidInput.value.trim(), ntf=notifyUuidInput.value.trim(), wrt=writeUuidInput.value.trim();
+        try{ gattServer=await bluetoothDevice.gatt.connect();
+            const service=await gattServer.getPrimaryService(svc);
+            notifyChar=await service.getCharacteristic(ntf);
+            await notifyChar.startNotifications();
+            notifyChar.addEventListener('characteristicvaluechanged',onNotification);
+            if(wrt){ try{ writeChar=await service.getCharacteristic(wrt); }catch(e){} }
+            updateConnectionUI(true);
+            bluetoothDevice.addEventListener('gattserverdisconnected',onDisconnect);
+            addLog('✅ 已连接'); }
+        catch(e){ addLog(`连接失败: ${e.message}`); updateConnectionUI(false); }
+    }
+    function onDisconnect(){ addLog('断开'); if(notifyChar) notifyChar.removeEventListener('characteristicvaluechanged',onNotification); notifyChar=writeChar=null; updateConnectionUI(false); }
+    function disconnect(){ if(bluetoothDevice?.gatt.connected) bluetoothDevice.gatt.disconnect(); else onDisconnect(); }
+
+    // UI事件
+    document.querySelectorAll('.station-card').forEach(card=>{
+        card.addEventListener('click',()=>{
+            if(card.classList.contains('occupied')) return;
+            document.querySelectorAll('.station-card').forEach(c=>c.classList.remove('selected'));
+            card.classList.add('selected');
+            selectedStation=card.dataset.station;
+            document.getElementById('billingPanel').style.display='block';
+            document.getElementById('chargingPanel').style.display='block';
+            document.getElementById('settlementPanel').style.display='none';
+            resetChargeState();
+            addLog(`已选择充电桩: ${card.querySelector('.station-name').textContent}`);
+        });
+    });
+
+    document.getElementById('payBtn').addEventListener('click',()=>{
+        const dur=parseInt(document.getElementById('durationSelect').value);
+        targetDurationMin=dur;
+        const priceMap={30:6,60:10,90:14,120:18};
+        paidAmount=priceMap[dur]||10;
+        document.getElementById('payResult').style.display='block';
+        document.getElementById('payResult').textContent=`✅ 支付成功！¥${paidAmount.toFixed(2)} (${dur}分钟)`;
+        addLog(`💰 模拟支付完成 ¥${paidAmount.toFixed(2)}`);
+        document.getElementById('startChargeBtn').disabled=false;
+    });
+
+    document.getElementById('startChargeBtn').addEventListener('click',()=>{
+        if(!selectedStation){ addLog('请先选择充电桩'); return; }
+        if(!chargeActive && paidAmount===0){ addLog('请先完成支付'); return; }
+        document.getElementById('chargingStateText').textContent='正在连接充电桩...';
+        document.getElementById('chargingBolt').style.display='inline';
+        addLog('🔗 正在建立充电连接...');
+        setTimeout(()=>{
+            document.getElementById('chargingStateText').textContent='充电桩已就绪，开始充电...';
+            addLog('✅ 连接成功，开始充电');
+            startChargingSimulation();
+        }, 2000);
+    });
+
+    document.getElementById('stopChargeBtn').addEventListener('click',()=>{
+        if(chargeActive) finishCharge('手动停止');
+    });
+
+    document.getElementById('tempThrSlider').addEventListener('input',function(){
+        tempThreshold=parseInt(this.value);
+        document.getElementById('tempThrVal').textContent=tempThreshold+'°C';
+        document.getElementById('tempThrDisplay').textContent=tempThreshold;
+    });
+
+    document.getElementById('autoModeToggle').addEventListener('click',function(){
+        autoMode=!autoMode;
+        this.textContent=autoMode?'🔄 自动调节':'✋ 手动调节';
+        document.getElementById('manualPowerSlider').disabled=autoMode;
+    });
+
+    document.getElementById('manualPowerSlider').addEventListener('input',function(){
+        if(!autoMode){
+            targetPower=parseInt(this.value);
+            updateChargingDisplay();
+        }
+    });
+
+    document.getElementById('newChargeBtn').addEventListener('click',()=>{
+        document.getElementById('settlementPanel').style.display='none';
+        document.getElementById('chargingPanel').style.display='block';
+        document.getElementById('billingPanel').style.display='block';
+        document.getElementById('payResult').style.display='none';
+        paidAmount=0;
+        resetChargeState();
+        addLog('🔄 准备新的充电');
+    });
+
+    document.getElementById('simulateBtn').addEventListener('click',()=>{
+        const t=(25+Math.random()*30).toFixed(1);
+        const v=(218+Math.random()*6).toFixed(1);
+        const c=(Math.random()*20).toFixed(1);
+        const p=Math.round(Math.random()*80);
+        const raw=`#${t}#${v}#${c}#${chargeActive?0:1}#${p}#`;
+        parseSensorData(raw);
+        addLog('🧪 模拟数据已注入');
+    });
+
+    configToggleBtn.addEventListener('click',()=> configPanel.style.display=configPanel.style.display==='none'?'flex':'none');
+    scanBtn.addEventListener('click',scan);
+    connectBtn.addEventListener('click',connect);
+    disconnectBtn.addEventListener('click',disconnect);
+
+    updateConnectionUI(false);
+    document.getElementById('startChargeBtn').disabled=true;
+    document.getElementById('stopChargeBtn').disabled=true;
+    resetChargeState();
+    addLog('🔋 智能充电桩系统已启动');
+    addLog('💡 选择充电桩 → 支付 → 启动充电 (10倍速演示)');
+})();
+</script>
+</body>
+</html>
