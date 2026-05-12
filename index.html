@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover, maximum-scale=1.0">
-    <title>智能充电桩 · 新能源充电管家</title>
+    <title>智能充电桩设计</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700;14..32,800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
@@ -16,9 +16,6 @@
             --text: #eaf2f8;
             --text2: #94a8b8;
             --border: #2d4050;
-            --charging: #00d4aa;
-            --warning: #f59e4b;
-            --danger: #e74c3c;
             --progress-bg: #1a2836;
         }
         * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; }
@@ -54,7 +51,6 @@
         .station-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
         .station-card { background:var(--card); border-radius:16px; padding:12px 8px; text-align:center; border:2px solid var(--border); cursor:pointer; transition:0.2s; }
         .station-card.selected { border-color:var(--accent); box-shadow:0 0 16px rgba(0,212,170,0.35); }
-        .station-card.occupied { opacity:0.5; pointer-events:none; border-color:#5a3a3a; }
         .station-icon { font-size:1.6rem; } .station-name { font-weight:700; font-size:0.8rem; } .station-status { font-size:0.6rem; color:var(--text2); }
         .battery-container { display:flex; flex-direction:column; align-items:center; gap:6px; background:var(--card); border-radius:20px; padding:14px; border:1px solid var(--border); }
         .battery-body { width:80px; height:130px; border:4px solid #5a7a8a; border-radius:12px; position:relative; overflow:hidden; background:#0d1a24; }
@@ -67,8 +63,6 @@
         .data-card { background:var(--card); border-radius:14px; padding:10px; text-align:center; border:1px solid var(--border); }
         .data-value { font-size:1.6rem; font-weight:800; color:var(--accent); }
         .data-label { font-size:0.6rem; color:var(--text2); }
-        .temp-warn { color:var(--danger)!important; animation:blink 0.8s infinite; }
-        @keyframes blink { 50%{opacity:0.4;} }
         .progress-bar-bg { background:var(--progress-bg); border-radius:10px; height:6px; overflow:hidden; }
         .progress-bar-fill { height:100%; background:linear-gradient(90deg,#00d4aa,#00e8c0); border-radius:10px; transition:width 0.3s; }
         .log-box { background:#0a141c; border-radius:12px; padding:7px 10px; height:70px; overflow-y:auto; font-family:monospace; font-size:0.6rem; color:#7a9aaa; border:1px solid #1a2e3a; }
@@ -79,7 +73,6 @@
         .status-badge { display:inline-block; padding:3px 10px; border-radius:12px; font-weight:700; font-size:0.65rem; }
         .badge-charging { background:#0d5a3a; color:#00ffc8; }
         .badge-idle { background:#3a4a5a; color:#a0b8c8; }
-        .badge-fault { background:#5a2020; color:#ff6b6b; }
     </style>
 </head>
 <body>
@@ -142,10 +135,10 @@
         </div>
 
         <div class="data-grid">
-            <div class="data-card"><div class="data-label">🌡️ 温度</div><div class="data-value" id="tempVal">--</div><div class="data-label">阈值 <span id="tempThrDisplay">70</span>°C</div></div>
+            <div class="data-card"><div class="data-label">🌡️ 温度</div><div class="data-value" id="tempVal">--</div><div class="data-label">°C</div></div>
             <div class="data-card"><div class="data-label">⚡ 电压</div><div class="data-value" id="voltVal">--</div><div class="data-label">V</div></div>
             <div class="data-card"><div class="data-label">🔌 电流</div><div class="data-value" id="currVal">--</div><div class="data-label">A</div></div>
-            <div class="data-card"><div class="data-label">📊 功率</div><div class="data-value" id="powerVal">--</div><div class="data-label">等级 (0-99)</div></div>
+            <div class="data-card"><div class="data-label">📊 功率</div><div class="data-value" id="powerVal">--</div><div class="data-label">等级</div></div>
         </div>
 
         <div style="display:flex; justify-content:space-between; align-items:center; gap:8px; margin:8px 0;">
@@ -159,17 +152,12 @@
             <button class="btn btn-accent" id="startChargeBtn"><i class="fas fa-bolt"></i> 启动充电</button>
             <button class="btn btn-danger" id="stopChargeBtn"><i class="fas fa-power-off"></i> 停止充电</button>
         </div>
-        <div style="font-size:0.6rem; color:var(--text2); text-align:center; margin-top:4px;">
-            温度阈值: <input type="range" id="tempThrSlider" min="40" max="90" value="70" style="width:120px;display:inline;">
-            <span id="tempThrVal">70°C</span> (超温自动断电)
-        </div>
     </div>
 
     <div id="settlementPanel" style="display:none;" class="bill-card">
         <div style="font-weight:700;">💰 充电结算</div>
         <div class="bill-amount" id="finalBill">¥0.00</div>
         <div style="font-size:0.7rem;">充电量: <span id="finalKwh">0</span> kWh | 时长: <span id="finalDuration">0</span> 分钟</div>
-        <div style="font-size:0.6rem; color:var(--text2);">温度: <span id="finalTemp">--</span>°C | 状态: <span id="finalStatus">--</span></div>
         <button class="btn btn-accent" id="newChargeBtn" style="margin-top:6px;"><i class="fas fa-redo"></i> 新的充电</button>
     </div>
 
@@ -194,13 +182,10 @@
     const chargeStatusBadge = document.getElementById('chargeStatusBadge');
 
     let bluetoothDevice = null, gattServer = null, notifyChar = null, writeChar = null, isConnected = false;
-    let selectedStation = null;
     let chargeActive = false;
     let chargeProgress = 0;
     let chargeInterval = null;
-    let simInterval = null;
-    let currentTemp = 25, currentVolt = 220, currentCurr = 0, currentPower = 0, chargeState = 1;
-    let tempThreshold = 70;
+    let currentTemp = 25, currentVolt = 220, currentCurr = 0, currentPower = 0;
     let totalChargeSeconds = 0;
     let elapsedSeconds = 0;
     let targetDurationMin = 60;
@@ -208,7 +193,7 @@
     let paidAmount = 0;
     let autoMode = true;
     let targetPower = 50;
-    const TIME_SPEED = 10; // 10倍加速
+    const TIME_SPEED = 10;
 
     function updateClock() { clockSpan.textContent = new Date().toLocaleTimeString('zh-CN',{hour12:false}); }
     setInterval(updateClock,1000); updateClock();
@@ -251,11 +236,6 @@
         document.getElementById('voltVal').textContent = currentVolt.toFixed(1);
         document.getElementById('currVal').textContent = currentCurr.toFixed(1);
         document.getElementById('powerVal').textContent = currentPower;
-        if(currentTemp>tempThreshold && chargeActive) {
-            document.getElementById('tempVal').classList.add('temp-warn');
-        } else {
-            document.getElementById('tempVal').classList.remove('temp-warn');
-        }
         document.getElementById('targetPowerDisplay').textContent = targetPower;
     }
 
@@ -271,12 +251,11 @@
         catch(e) { addLog(`发送失败: ${e.message}`,'tx'); }
     }
 
-    function stopAllIntervals() { if(chargeInterval) clearInterval(chargeInterval); chargeInterval=null; if(simInterval) clearInterval(simInterval); simInterval=null; }
+    function stopAllIntervals() { if(chargeInterval) clearInterval(chargeInterval); chargeInterval=null; }
 
     function resetChargeState() {
         stopAllIntervals();
         chargeActive=false; chargeProgress=0; elapsedSeconds=0; totalKwh=0;
-        currentTemp=25; currentVolt=220; currentCurr=0; currentPower=0; chargeState=1;
         updateChargingDisplay();
         document.getElementById('chargingBolt').style.display='none';
         document.getElementById('chargingStateText').textContent='准备就绪';
@@ -289,7 +268,6 @@
     function finishCharge(reason) {
         stopAllIntervals();
         chargeActive=false;
-        chargeState=1;
         document.getElementById('chargingBolt').style.display='none';
         document.getElementById('chargingStateText').textContent=reason;
         chargeStatusBadge.className='status-badge badge-idle';
@@ -308,8 +286,6 @@
         document.getElementById('finalBill').textContent='¥'+paidAmount.toFixed(2);
         document.getElementById('finalKwh').textContent=totalKwh.toFixed(2);
         document.getElementById('finalDuration').textContent=Math.round(elapsedSeconds/60);
-        document.getElementById('finalTemp').textContent=currentTemp.toFixed(1);
-        document.getElementById('finalStatus').textContent=reason;
     }
 
     function startChargingSimulation() {
@@ -340,22 +316,16 @@
         }, 1000);
     }
 
+    // 上传数据仅更新显示，不干预充电逻辑
     function parseSensorData(raw) {
         const match = raw.match(/#([\d.]+)#([\d.]+)#([\d.]+)#(\d)#([\d.]+)#/);
         if(match) {
             currentTemp = parseFloat(match[1]);
             currentVolt = parseFloat(match[2]);
             currentCurr = parseFloat(match[3]);
-            chargeState = parseInt(match[4]);
             currentPower = parseInt(match[5]);
             updateChargingDisplay();
-            addLog(`📥 温:${currentTemp.toFixed(1)} V:${currentVolt.toFixed(1)} A:${currentCurr.toFixed(1)} 状态:${chargeState} 功率:${currentPower}`,'rx');
-            if(chargeState === 1 && chargeActive) {
-                finishCharge('设备已断电');
-            }
-            if(currentTemp > tempThreshold && chargeActive) {
-                finishCharge('超温断电');
-            }
+            addLog(`📥 温:${currentTemp.toFixed(1)} V:${currentVolt.toFixed(1)} A:${currentCurr.toFixed(1)} 功率:${currentPower}`,'rx');
         }
     }
 
@@ -392,10 +362,8 @@
     // UI事件
     document.querySelectorAll('.station-card').forEach(card=>{
         card.addEventListener('click',()=>{
-            if(card.classList.contains('occupied')) return;
             document.querySelectorAll('.station-card').forEach(c=>c.classList.remove('selected'));
             card.classList.add('selected');
-            selectedStation=card.dataset.station;
             document.getElementById('billingPanel').style.display='block';
             document.getElementById('chargingPanel').style.display='block';
             document.getElementById('settlementPanel').style.display='none';
@@ -416,7 +384,6 @@
     });
 
     document.getElementById('startChargeBtn').addEventListener('click',()=>{
-        if(!selectedStation){ addLog('请先选择充电桩'); return; }
         if(!chargeActive && paidAmount===0){ addLog('请先完成支付'); return; }
         document.getElementById('chargingStateText').textContent='正在连接充电桩...';
         document.getElementById('chargingBolt').style.display='inline';
@@ -432,12 +399,6 @@
         if(chargeActive) finishCharge('手动停止');
     });
 
-    document.getElementById('tempThrSlider').addEventListener('input',function(){
-        tempThreshold=parseInt(this.value);
-        document.getElementById('tempThrVal').textContent=tempThreshold+'°C';
-        document.getElementById('tempThrDisplay').textContent=tempThreshold;
-    });
-
     document.getElementById('autoModeToggle').addEventListener('click',function(){
         autoMode=!autoMode;
         this.textContent=autoMode?'🔄 自动调节':'✋ 手动调节';
@@ -448,6 +409,7 @@
         if(!autoMode){
             targetPower=parseInt(this.value);
             updateChargingDisplay();
+            if(chargeActive) sendCommand(buildCommand(true, targetPower));
         }
     });
 
@@ -481,7 +443,6 @@
     document.getElementById('stopChargeBtn').disabled=true;
     resetChargeState();
     addLog('🔋 智能充电桩系统已启动');
-    addLog('💡 选择充电桩 → 支付 → 启动充电 (10倍速演示)');
 })();
 </script>
 </body>
